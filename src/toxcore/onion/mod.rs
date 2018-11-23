@@ -43,3 +43,4 @@ onion return addresses.
 
 pub mod onion_announce;
 pub mod packet;
+pub mod path;
