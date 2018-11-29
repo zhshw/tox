@@ -185,6 +185,26 @@ pub struct OnionAnnounceRequestPayload {
     pub sendback_data: u64
 }
 
+impl OnionAnnounceRequestPayload {
+    /// Create an onion announce request payload
+    pub fn new(
+        search_pk: PublicKey,
+        data_pk: PublicKey,
+        ping_id: Option<sha256::Digest>,
+        sendback_data: u64,
+    ) -> Self {
+        let ping_id = ping_id
+            .unwrap_or(sha256::Digest::from_slice(&[0; sha256::DIGESTBYTES]).unwrap());
+
+        OnionAnnounceRequestPayload {
+            search_pk,
+            data_pk,
+            ping_id,
+            sendback_data,
+        }
+    }
+}
+
 impl FromBytes for OnionAnnounceRequestPayload {
     named!(from_bytes<OnionAnnounceRequestPayload>, do_parse!(
         ping_id: call!(sha256::Digest::from_bytes) >>

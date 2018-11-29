@@ -1,9 +1,11 @@
-use toxcore::crypto_core::random_usize;
+use toxcore::utils::random_element;
+use sodiumoxide::crypto::hash::sha256::Digest;
+use toxcore::crypto_core::*;
 use std::time::Instant;
-use toxcore::dht::dht_node::DhtNode;
 use toxcore::dht::packed_node::PackedNode;
 
 use super::path::Path;
+use super::packet::*;
 
 const MAX_ONION_CLIENTS: usize = 8;
 const MAX_ONION_CLIENTS_ANNOUNCE: usize = 12;
@@ -30,8 +32,18 @@ const ONION_NODE_MAX_PINGS: usize = 3;
 
 const MAX_PATH_NODES: usize = 32;
 
+enum Packet {
+    AnnounceRequest(InnerOnionAnnounceRequest),
+}
+
+impl From<InnerOnionAnnounceRequest> for Packet {
+    fn from(req: InnerOnionAnnounceRequest) -> Self {
+        Packet::AnnounceRequest(req)
+    }
+}
+
 pub struct Sendback {
-    pub friend_num_inc: u32,
+    pub friend_num: Option<u32>,
     pub node: PackedNode,
     pub path_num: u32
 }
@@ -40,7 +52,12 @@ pub struct Sendback {
 struct PingArray {
 }
 
-pub struct Node {}
+
+pub struct Node {
+    node: PackedNode,
+    pingid: (),
+    is_stored: bool,
+}
 
 impl Node {
     fn is_timeout(&self, time: Instant) -> bool {
@@ -51,12 +68,15 @@ impl Node {
     }
 }
 
+struct Friend {
+}
+
 pub struct ClientPath {
     path: Path,
     last_success: Instant,
     last_used: Instant,
     creation_time: Instant,
-    failures: usize,
+    usages_credit: usize,
 }
 
 impl ClientPath {
@@ -66,7 +86,11 @@ impl ClientPath {
 }
 
 pub struct Client {
-    friends: (),
+    pk: PublicKey,
+    sk: SecretKey,
+    pck: PrecomputedKey,
+
+    friends: Friend,
     
     announce_list: Vec<Node>,
     last_announce: Instant,
@@ -79,13 +103,71 @@ pub struct Client {
 }
 
 impl Client {
-    //
-    fn add_to_list(&mut self, ) {}
-    fn announce_self(&mut self, time: Instant) {
+    fn add_sendback(
+        &mut self, friend_num: Option<u32>, node: PackedNode, path_num: u32
+    ) -> u64 {
+        unimplemented!()
+    }
+
+    fn random_path_nodes(&self) -> Option<Vec<PackedNode>> {
+        if self.path_nodes.len() < NUMBER_ONION_PATHS {
+            return None
+        };
+
+        let mut nodes = vec![];
+        while nodes.len() < NUMBER_ONION_PATHS {
+            let node = random_element(&self.path_nodes).unwrap();
+
+            if !self.path_nodes.contains(node) {
+                nodes.push(node.clone())
+            } else {
+                continue
+            }
+        }
+
+        Some(nodes)
+    }
+    fn random_path(&mut self) -> Option<ClientPath> {
+        unimplemented!()
+    }
+
+    fn get_path(&mut self, path_num: usize) -> Option<ClientPath> {
+        unimplemented!()
+    }
+
+    fn add_to_list(&mut self, ) {
+        //
+        unimplemented!()
+    }
+
+    fn send_self_announce_request(
+        &mut self, path: &ClientPath, dest: &PackedNode, ping_id: Option<Digest>
+    ) {
+        let sendback = self.add_sendback(None, dest.clone(), path.path.number);
+        let payload = OnionAnnounceRequestPayload::new(
+            dest.pk.clone(), self.pk.clone(), ping_id, sendback
+        );
+        let request = InnerOnionAnnounceRequest::new(&self.pck, &dest.pk, &payload);
+        let packet = request.into();
+
+        self.send_onion_packet(path, packet)
+    }
+
+    fn send_onion_packet(&mut self, path: &ClientPath, packet: Packet) {
+        unimplemented!()
+    }
+
+    fn announce_self(&mut self, time: Instant) -> Result<(), ()> {
         self.announce_list.retain(|n| !n.is_timeout(time));
 
         for node in &self.announce_list {
-            //
+            //if stored && path_exists {}
+
+            //if timeout(last_pinged) || (timeout(last_announce) && random_magic)
+            {
+                //get_path
+                //send_ann_request(Some(ping_id))
+            }
         }
 
         let len = self.announce_list.len();
@@ -93,8 +175,21 @@ impl Client {
         if len <= margin && !self.path_nodes.is_empty() {
             for i in 0 .. MAX_ONION_CLIENTS_ANNOUNCE / 2 {
                 let num = random_usize() % len;
+                let path = self.random_path().unwrap(); // FIXME
+                //self.send_self_announce_request(&path, &self.path_nodes[num], None)
                 // send_announce_request
             }
         }
+
+        Ok(())
+    }
+
+    fn handle_announce_responce(&mut self) {
+        //check_sendback
+        //set_path_timeouts
+        //add_to_list
+        //unpack_nodes
+        //ping_nodes
+        unimplemented!()
     }
 }

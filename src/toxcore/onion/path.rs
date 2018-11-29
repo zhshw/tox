@@ -1,15 +1,15 @@
-use toxcore::dht::dht_node::DhtNode;
+use toxcore::dht::packed_node::PackedNode;
 use toxcore::crypto_core::*;
 
 pub struct Path {
     pub number: u32,
     pub public_keys: [PublicKey; 3],
     pub precomputed_keys: [PrecomputedKey; 3],
-    pub nodes: [DhtNode; 3],
+    pub nodes: [PackedNode; 3],
 }
 
 impl Path {
-    pub fn new(keypair: (&PublicKey, &SecretKey), nodes: &[DhtNode]) -> Self {
+    pub fn new(keypair: (&PublicKey, &SecretKey), nodes: &[PackedNode]) -> Self {
         let (public_key, secret_key) = keypair;
 
         let pk1 = public_key.clone();
