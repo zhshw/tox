@@ -72,7 +72,7 @@ struct Friend {
 }
 
 pub struct ClientPath {
-    path: Path,
+    inner: Path,
     last_success: Instant,
     last_used: Instant,
     creation_time: Instant,
@@ -90,12 +90,17 @@ pub struct Client {
     sk: SecretKey,
     pck: PrecomputedKey,
 
+    real_pk: PublicKey,
+    real_sk: SecretKey,
+
     friends: Friend,
     
     announce_list: Vec<Node>,
     last_announce: Instant,
 
     self_paths: Vec<ClientPath>,
+
+    temp_pk: PublicKey,
 
     path_nodes: Vec<PackedNode>,
 
@@ -106,6 +111,10 @@ impl Client {
     fn add_sendback(
         &mut self, friend_num: Option<u32>, node: PackedNode, path_num: u32
     ) -> u64 {
+        unimplemented!()
+    }
+
+    fn get_sendback(&self, sendback: u64) -> Option<&Sendback> {
         unimplemented!()
     }
 
@@ -127,6 +136,7 @@ impl Client {
 
         Some(nodes)
     }
+
     fn random_path(&mut self) -> Option<ClientPath> {
         unimplemented!()
     }
@@ -143,11 +153,13 @@ impl Client {
     fn send_self_announce_request(
         &mut self, path: &ClientPath, dest: &PackedNode, ping_id: Option<Digest>
     ) {
-        let sendback = self.add_sendback(None, dest.clone(), path.path.number);
+        // TODO: support friends
+        let sendback = self.add_sendback(None, dest.clone(), path.inner.number);
         let payload = OnionAnnounceRequestPayload::new(
-            dest.pk.clone(), self.pk.clone(), ping_id, sendback
+            self.real_pk.clone(), self.temp_pk.clone(), ping_id, sendback
         );
-        let request = InnerOnionAnnounceRequest::new(&self.pck, &dest.pk, &payload);
+        let pck = precompute(&dest.pk, &self.real_sk);
+        let request = InnerOnionAnnounceRequest::new(&pck, &self.real_pk, &payload);
         let packet = request.into();
 
         self.send_onion_packet(path, packet)
@@ -184,8 +196,9 @@ impl Client {
         Ok(())
     }
 
-    fn handle_announce_responce(&mut self) {
-        //check_sendback
+    fn handle_announce_responce(&mut self, announce: OnionAnnounceResponse) {
+        // TODO: support friends
+        let sb = self.get_sendback(announce.sendback_data);
         //set_path_timeouts
         //add_to_list
         //unpack_nodes
