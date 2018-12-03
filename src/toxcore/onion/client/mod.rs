@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use toxcore::utils::random_element;
 use sodiumoxide::crypto::hash::sha256::Digest;
 use toxcore::crypto_core::*;
@@ -42,6 +43,7 @@ impl From<InnerOnionAnnounceRequest> for Packet {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Sendback {
     pub friend_num: Option<u32>,
     pub node: PackedNode,
@@ -95,6 +97,7 @@ pub struct Client {
 
     friends: Friend,
     
+    // TODO: fixed size vec with update by PartialOrd
     announce_list: Vec<Node>,
     last_announce: Instant,
 
@@ -102,6 +105,7 @@ pub struct Client {
 
     temp_pk: PublicKey,
 
+    // TODO: replace with a vec of fixed size where nodes are updated circularly
     path_nodes: Vec<PackedNode>,
 
     announce_ping_array: PingArray,
@@ -145,8 +149,28 @@ impl Client {
         unimplemented!()
     }
 
-    fn add_to_list(&mut self, ) {
-        //
+    fn add_to_list(
+        &mut self,
+        _fnum: Option<u32>,
+        node: &PackedNode,
+        status: AnnounceStatus,
+        pingid_or_pk: sha256::Digest,
+        path_used: u32
+    ) {
+        use toxcore::dht::kbucket::Distance;
+
+        // TODO: support friends
+        let status = 
+            if status == AnnounceStatus::Found && pingid_or_pk.0 != self.temp_pk.0 {
+                AnnounceStatus::Failed
+            } else {
+                status
+            };
+        let ref_key = self.real_pk.clone();
+
+        // self.announce_list.sort_by(|l, r| ref_key.distance(&l.node.pk, &r.node.pk));
+        // insert node to the list
+
         unimplemented!()
     }
 
@@ -196,13 +220,36 @@ impl Client {
         Ok(())
     }
 
-    fn handle_announce_responce(&mut self, announce: OnionAnnounceResponse) {
+    fn handle_announce_responce(
+        &mut self,
+        source: SocketAddr,
+        announce: OnionAnnounceResponse
+    ) -> Result<(), ()> {
         // TODO: support friends
-        let sb = self.get_sendback(announce.sendback_data);
-        //set_path_timeouts
+        let sb = self.get_sendback(announce.sendback_data).cloned().ok_or(())?;
+        let key = precompute(&sb.node.pk, &self.real_sk);
+        // FIXME: this can panic
+        let payload = announce.get_payload(&key).unwrap();
+
+        self.set_path_timeouts(sb.friend_num, sb.path_num);
         //add_to_list
-        //unpack_nodes
-        //ping_nodes
+
+        if !payload.nodes.is_empty() {
+            //self.ping_nodes(&payload.nodes, )
+        }
+
+        unimplemented!()
+    }
+
+    fn set_path_timeouts(&mut self, fnum: Option<u32>, path_num: u32) -> Option<u32> {
+        unimplemented!()
+    }
+
+    fn ping_nodes(&mut self) {
+        // TODO: friends support
+        // Nodes that are closer to us than nodes in announce_list we choose.
+        // Ensure they are different from the nodes in announce_list
+        // If they are good to ping, AnnounceRequest (ping_id = 0) is send
         unimplemented!()
     }
 }
