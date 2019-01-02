@@ -8,7 +8,7 @@ use toxcore::tcp::packet::*;
 use toxcore::tcp::secure::*;
 use toxcore::stats::*;
 
-use nom::{ErrorKind, Needed, Offset};
+use nom::{Err, ErrorKind, Needed, Offset};
 use bytes::BytesMut;
 use tokio_codec::{Decoder, Encoder};
 
@@ -108,13 +108,14 @@ impl Decoder for Codec {
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // deserialize EncryptedPacket
         let (consumed, encrypted_packet) = match EncryptedPacket::from_bytes(buf) {
-            IResult::Incomplete(_) => {
+            Err(Err::Incomplete(_)) => {
                 return Ok(None)
             },
-            IResult::Error(error) => {
-                return Err(DecodeError::DeserializeEncryptedError { error, buf: buf.to_vec() })
+            Err(Err::Error(error)) => {
+                return Err(DecodeError::DeserializeEncryptedError { error: error.into_error_kind(), buf: buf.to_vec() })
             },
-            IResult::Done(i, encrypted_packet) => {
+            Err(Err::Failure(e)) => panic!("Tcp EncryptedPacket deserialize failed with unrecoverable error: {:?}", e),
+            Ok((i, encrypted_packet)) => {
                 (buf.offset(i), encrypted_packet)
             }
         };
@@ -124,14 +125,15 @@ impl Decoder for Codec {
             .map_err(|()| DecodeError::DecryptError)?;
 
         // deserialize Packet
-        match Packet::from_bytes(&decrypted_data) {
-            IResult::Incomplete(needed) => {
+        match Packet::from_bytes(&decrypted_data.clone()) {
+            Err(Err::Incomplete(needed)) => {
                 Err(DecodeError::IncompleteDecryptedPacket { needed, packet: decrypted_data })
             },
-            IResult::Error(error) => {
-                Err(DecodeError::DeserializeDecryptedError { error, packet: decrypted_data })
+            Err(Err::Error(error)) => {
+                Err(DecodeError::DeserializeDecryptedError { error: error.into_error_kind(), packet: decrypted_data })
             },
-            IResult::Done(_, packet) => {
+            Err(Err::Failure(e)) => panic!("Tcp Decrypted packet data deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, packet)) => {
                 // Add 1 to incoming counter
                 self.stats.counters.increase_incoming();
 

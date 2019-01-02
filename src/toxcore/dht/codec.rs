@@ -5,6 +5,7 @@ use std::fmt;
 use std::io::Error as IoError;
 
 use failure::{Backtrace, Context, Fail};
+use nom::Err;
 
 use toxcore::dht::packet::*;
 use toxcore::binary_io::*;
@@ -202,9 +203,10 @@ impl Decoder for DhtCodec {
         }
 
         match Packet::from_bytes(buf) {
-            IResult::Incomplete(needed) => Err(DecodeError::incomplete_packet(needed, buf.to_vec())),
-            IResult::Error(error) => Err(DecodeError::deserialize(error, buf.to_vec())),
-            IResult::Done(_, packet) => {
+            Err(Err::Incomplete(needed)) => Err(DecodeError::incomplete_packet(needed, buf.to_vec())),
+            Err(Err::Error(error)) => Err(DecodeError::deserialize(error.into_error_kind(), buf.to_vec())),
+            Err(Err::Failure(e)) => panic!("Udp packet deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, packet)) => {
                 // Add 1 to incoming counter
                 self.stats.counters.increase_incoming();
 

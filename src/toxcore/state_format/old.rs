@@ -492,7 +492,7 @@ impl FromBytes for FriendState {
         friend_status: call!(FriendStatus::from_bytes) >>
         pk: call!(PublicKey::from_bytes) >>
         fr_msg_bytes: take!(REQUEST_MSG_LEN) >>
-        padding1: take!(1) >>
+        _padding1: take!(1) >>
         fr_msg_len: be_u16 >>
         verify!(value!(fr_msg_len), |len| len <= REQUEST_MSG_LEN as u16) >>
         fr_msg: value!(fr_msg_bytes[..fr_msg_len as usize].to_vec()) >>
@@ -501,12 +501,12 @@ impl FromBytes for FriendState {
         verify!(value!(name_len), |len| len <= NAME_LEN as u16) >>
         name: value!(Name(name_bytes[..name_len as usize].to_vec())) >>
         status_msg_bytes: take!(STATUS_MSG_LEN) >>
-        padding2: take!(1) >>
+        _padding2: take!(1) >>
         status_msg_len: be_u16 >>
         verify!(value!(status_msg_len), |len| len <= STATUS_MSG_LEN as u16) >>
         status_msg: value!(StatusMsg(status_msg_bytes[..status_msg_len as usize].to_vec())) >>
         user_status: call!(UserWorkingStatus::from_bytes) >>
-        padding3: take!(3) >>
+        _padding3: take!(3) >>
         nospam: call!(NoSpam::from_bytes) >>
         last_seen: le_u64 >>
         (FriendState {

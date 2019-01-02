@@ -6,7 +6,7 @@ use super::*;
 use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
 
-use nom::{le_u64, rest};
+use nom::{Err, le_u64, rest};
 use std::io::{Error, ErrorKind};
 
 /** It's used for announcing ourselves to onion node and for looking for other
@@ -96,17 +96,18 @@ impl InnerOnionAnnounceRequest {
                 Error::new(ErrorKind::Other, "OnionAnnounceRequest decrypt error.")
             })?;
         match OnionAnnounceRequestPayload::from_bytes(&decrypted) {
-            IResult::Incomplete(e) => {
+            Err(Err::Incomplete(e)) => {
                 debug!(target: "Onion", "OnionAnnounceRequestPayload deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("OnionAnnounceRequestPayload deserialize error: {:?}", e)))
             },
-            IResult::Error(e) => {
+            Err(Err::Error(e)) => {
                 debug!(target: "Onion", "OnionAnnounceRequestPayload deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("OnionAnnounceRequestPayload deserialize error: {:?}", e)))
             },
-            IResult::Done(_, inner) => {
+            Err(Err::Failure(e)) => panic!("OnionAnnounceRequestPayload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, inner)) => {
                 Ok(inner)
             }
         }

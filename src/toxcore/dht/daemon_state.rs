@@ -16,7 +16,7 @@ use toxcore::dht::kbucket::*;
 use std::fmt;
 
 use failure::{Backtrace, Context, Fail};
-use nom::{Needed, ErrorKind as NomErrorKind};
+use nom::{Err, ErrorKind, Needed};
 
 /// An error that can occur while serializing/deserializing object
 #[derive(Debug)]
@@ -34,7 +34,7 @@ impl DeserializeError {
         DeserializeError::from(DeserializeErrorKind::IncompleteData { needed, data })
     }
 
-    pub(crate) fn deserialize(error: NomErrorKind, data: Vec<u8>) -> DeserializeError {
+    pub(crate) fn deserialize(error: ErrorKind, data: Vec<u8>) -> DeserializeError {
         DeserializeError::from(DeserializeErrorKind::Deserialize { error, data })
     }
 }
@@ -61,7 +61,7 @@ pub enum DeserializeErrorKind {
     /// Error indicates that object can't be parsed.
     Deserialize {
         /// Parsing error
-        error: NomErrorKind,
+        error: ErrorKind,
         /// Object serialized data
         data: Vec<u8>,
     },
@@ -132,11 +132,12 @@ impl DaemonState {
     /// Deserialize DHT close list and then re-setup close list, old means that the format of deserialization is old version
     pub fn deserialize_old(server: &Server, serialized_data: &[u8]) -> impl Future<Item=(), Error=DeserializeError> + Send {
         let nodes = match DhtState::from_bytes(serialized_data) {
-            IResult::Done(_, DhtState(nodes)) => nodes,
-            IResult::Incomplete(needed) =>
+            Ok((_, DhtState(nodes))) => nodes,
+            Err(Err::Incomplete(needed)) =>
                 return Either::A(future::err(DeserializeError::incomplete(needed, serialized_data.to_vec()))),
-            IResult::Error(error) =>
-                return Either::A(future::err(DeserializeError::deserialize(error, serialized_data.to_vec()))),
+            Err(Err::Error(error)) =>
+                return Either::A(future::err(DeserializeError::deserialize(error.into_error_kind(), serialized_data.to_vec()))),
+            Err(Err::Failure(e)) => panic!("DhtState deserialize failed with unrecoverable error: {:?}", e),
         };
 
         let mut request_queue = server.request_queue.write();
@@ -201,7 +202,7 @@ mod tests {
         let serialized_vec = [42; 10];
         let res = DaemonState::deserialize_old(&alice, &serialized_vec).wait();
         assert!(res.is_err());
-        assert_eq!(*res.err().unwrap().kind(), DeserializeErrorKind::Deserialize { error: NomErrorKind::Tag, data: serialized_vec.to_vec() });
+        assert_eq!(*res.err().unwrap().kind(), DeserializeErrorKind::Deserialize { error: ErrorKind::Tag, data: serialized_vec.to_vec() });
 
         // test with empty close list
         alice.close_nodes.write().remove(&pk_org);
@@ -211,7 +212,7 @@ mod tests {
 
     #[test]
     fn ser_de_error() {
-        let error = DeserializeError::deserialize(NomErrorKind::Eof, vec![1,2,3,4]);
+        let error = DeserializeError::deserialize(ErrorKind::Eof, vec![1,2,3,4]);
         assert!(error.cause().is_none());
         assert!(error.backtrace().is_some());
         assert_eq!(format!("{}", error), "Deserialize object error: Eof, data: [1, 2, 3, 4]".to_owned());
@@ -221,7 +222,7 @@ mod tests {
     fn ser_de_error_kind() {
         let incomplete = DeserializeErrorKind::IncompleteData { needed: Needed::Size(5), data: vec![1,2,3,4] };
         assert_eq!(format!("{}", incomplete), "Bytes of object should not be incomplete: Size(5), data: [1, 2, 3, 4]".to_owned());
-        let deserialize = DeserializeErrorKind::Deserialize { error: NomErrorKind::Eof, data: vec![1,2,3,4] };
+        let deserialize = DeserializeErrorKind::Deserialize { error: ErrorKind::Eof, data: vec![1,2,3,4] };
         assert_eq!(format!("{}", deserialize), "Deserialize object error: Eof, data: [1, 2, 3, 4]".to_owned());
     }
 }

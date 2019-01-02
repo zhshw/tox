@@ -2,7 +2,7 @@
 */
 
 use byteorder::{ByteOrder, BigEndian};
-use nom::{be_u16, be_u32, rest};
+use nom::{Err, be_u16, be_u32, rest};
 
 use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
@@ -91,15 +91,16 @@ impl CryptoData {
                 GetPayloadError::decrypt()
             })?;
         match CryptoDataPayload::from_bytes(&decrypted) {
-            IResult::Incomplete(needed) => {
+            Err(Err::Incomplete(needed)) => {
                 debug!(target: "Dht", "CryptoDataPayload return deserialize error: {:?}", needed);
                 Err(GetPayloadError::incomplete(needed, self.payload.to_vec()))
             },
-            IResult::Error(error) => {
+            Err(Err::Error(error)) => {
                 debug!(target: "Dht", "CryptoDataPayload return deserialize error: {:?}", error);
-                Err(GetPayloadError::deserialize(error, self.payload.to_vec()))
+                Err(GetPayloadError::deserialize(error.into_error_kind(), self.payload.to_vec()))
             },
-            IResult::Done(_, payload) => {
+            Err(Err::Failure(e)) => panic!("CryptoDataPayload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, payload)) => {
                 Ok(payload)
             }
         }

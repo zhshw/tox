@@ -96,17 +96,18 @@ impl OnionRequest2 {
                 Error::new(ErrorKind::Other, "OnionRequest2 decrypt error.")
             })?;
         match OnionRequest2Payload::from_bytes(&decrypted) {
-            IResult::Incomplete(e) => {
+            Err(Err::Incomplete(e)) => {
                 debug!(target: "Onion", "OnionRequest2Payload deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("OnionRequest2Payload deserialize error: {:?}", e)))
             },
-            IResult::Error(e) => {
+            Err(Err::Error(e)) => {
                 debug!(target: "Onion", "OnionRequest2Payload deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("OnionRequest2Payload deserialize error: {:?}", e)))
             },
-            IResult::Done(_, inner) => {
+            Err(Err::Failure(e)) => panic!("OnionRequest2Payload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, inner)) => {
                 Ok(inner)
             }
         }

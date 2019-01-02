@@ -1,7 +1,7 @@
 /*! PingRequest packet
 */
 
-use nom::{be_u64, rest};
+use nom::{Err, rest, be_u64};
 
 use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
@@ -89,15 +89,16 @@ impl PingRequest {
             })?;
 
         match PingRequestPayload::from_bytes(&decrypted) {
-            IResult::Incomplete(needed) => {
+            Err(Err::Incomplete(needed)) => {
                 debug!(target: "PingRequest", "PingRequestPayload deserialize error: {:?}", needed);
                 Err(GetPayloadError::incomplete(needed, self.payload.to_vec()))
             },
-            IResult::Error(error) => {
+            Err(Err::Error(error)) => {
                 debug!(target: "PingRequest", "PingRequestPayload deserialize error: {:?}", error);
-                Err(GetPayloadError::deserialize(error, self.payload.to_vec()))
+                Err(GetPayloadError::deserialize(error.into_error_kind(), self.payload.to_vec()))
             },
-            IResult::Done(_, payload) => {
+            Err(Err::Failure(e)) => panic!("PingRequestPayload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, payload)) => {
                 Ok(payload)
             }
         }

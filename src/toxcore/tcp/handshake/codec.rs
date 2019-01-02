@@ -4,7 +4,7 @@
 use toxcore::binary_io::*;
 use toxcore::tcp::handshake::packet::*;
 
-use nom::Offset;
+use nom::{Err, Offset};
 use bytes::BytesMut;
 use std::io::{Error, ErrorKind};
 use tokio_codec::{Decoder, Encoder};
@@ -18,11 +18,12 @@ impl Decoder for ClientHandshakeCodec {
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let (consumed, handshake) = match ClientHandshake::from_bytes(buf) {
-            IResult::Incomplete(_) => {
+            Err(Err::Incomplete(_)) => {
                 return Ok(None)
             },
-            IResult::Error(_) => unreachable!("ClientHandshake cannot be deserialized with error"),
-            IResult::Done(i, handshake) => {
+            Err(Err::Error(_)) => unreachable!("ClientHandshake cannot be deserialized with error"),
+            Err(Err::Failure(_)) => unreachable!("ClientHandshake cannot be deserialized with error"),
+            Ok((i, handshake)) => {
                 (buf.offset(i), handshake)
             }
         };
@@ -57,11 +58,12 @@ impl Decoder for ServerHandshakeCodec {
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let (consumed, handshake) = match ServerHandshake::from_bytes(buf) {
-            IResult::Incomplete(_) => {
+            Err(Err::Incomplete(_)) => {
                 return Ok(None)
             },
-            IResult::Error(_) => unreachable!("ServerHandshake cannot be deserialized with error"),
-            IResult::Done(i, handshake) => {
+            Err(Err::Error(_)) => unreachable!("ServerHandshake cannot be deserialized with error"),
+            Err(Err::Failure(_)) => unreachable!("ServerHandshake cannot be deserialized with error"),
+            Ok((i, handshake)) => {
                 (buf.offset(i), handshake)
             }
         };

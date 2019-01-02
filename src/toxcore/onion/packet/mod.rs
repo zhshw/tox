@@ -31,7 +31,7 @@ use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
 use toxcore::dht::packed_node::PackedNode;
 
-use nom::{be_u16, le_u8, rest};
+use nom::{Err, be_u16, le_u8, rest};
 use std::net::{
     IpAddr,
     Ipv4Addr,
@@ -300,17 +300,18 @@ impl OnionReturn {
                 Error::new(ErrorKind::Other, "OnionReturn decrypt error.")
             })?;
         match OnionReturn::inner_from_bytes(&decrypted) {
-            IResult::Incomplete(e) => {
+            Err(Err::Incomplete(e)) => {
                 debug!(target: "Onion", "Inner onion return deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("Inner onion return deserialize error: {:?}", e)))
             },
-            IResult::Error(e) => {
+            Err(Err::Error(e)) => {
                 debug!(target: "Onion", "Inner onion return deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("Inner onion return deserialize error: {:?}", e)))
             },
-            IResult::Done(_, inner) => {
+            Err(Err::Failure(e)) => panic!("OnionReturn deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, inner)) => {
                 Ok(inner)
             }
         }

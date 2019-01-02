@@ -1,7 +1,7 @@
 /*! DhtRequest packet
 */
 
-use nom::{be_u64, rest};
+use nom::{Err, be_u64, rest};
 
 use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
@@ -98,15 +98,16 @@ impl DhtRequest {
             })?;
 
         match DhtRequestPayload::from_bytes(&decrypted) {
-            IResult::Incomplete(needed) => {
+            Err(Err::Incomplete(needed)) => {
                 debug!(target: "DhtRequest", "DhtRequest deserialize error: {:?}", needed);
                 Err(GetPayloadError::incomplete(needed, self.payload.to_vec()))
             },
-            IResult::Error(error) => {
+            Err(Err::Error(error)) => {
                 debug!(target: "DhtRequest", "DhtRequest deserialize error: {:?}", error);
-                Err(GetPayloadError::deserialize(error, self.payload.to_vec()))
+                Err(GetPayloadError::deserialize(error.into_error_kind(), self.payload.to_vec()))
             },
-            IResult::Done(_, packet) => {
+            Err(Err::Failure(e)) => panic!("DhtRequestPayload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, packet)) => {
                 Ok(packet)
             }
         }

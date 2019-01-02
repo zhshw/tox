@@ -74,7 +74,7 @@ impl ToBytes for Ipv6Addr {
 
 /// Parser that returns the length of the remaining input.
 pub fn rest_len(input: &[u8]) -> IResult<&[u8], usize> {
-    IResult::Done(input, input.len())
+    Ok((input, input.len()))
 }
 
 /// Generator that ensures that length of serialized data does not exceed specified limit.

@@ -6,7 +6,7 @@ use super::*;
 use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
 
-use nom::rest;
+use nom::{Err, rest};
 use std::io::{Error, ErrorKind};
 
 /// Encrypted payload should contain at least `IpPort` struct.
@@ -104,17 +104,18 @@ impl OnionRequest1 {
                 Error::new(ErrorKind::Other, "OnionRequest1 decrypt error.")
             })?;
         match OnionRequest1Payload::from_bytes(&decrypted) {
-            IResult::Incomplete(e) => {
+            Err(Err::Incomplete(e)) => {
                 debug!(target: "Onion", "OnionRequest1Payload deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("OnionRequest1Payload deserialize error: {:?}", e)))
             },
-            IResult::Error(e) => {
+            Err(Err::Error(e)) => {
                 debug!(target: "Onion", "OnionRequest1Payload deserialize error: {:?}", e);
                 Err(Error::new(ErrorKind::Other,
                     format!("OnionRequest1Payload deserialize error: {:?}", e)))
             },
-            IResult::Done(_, inner) => {
+            Err(Err::Failure(e)) => panic!("OnionRequest1Payload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, inner)) => {
                 Ok(inner)
             }
         }

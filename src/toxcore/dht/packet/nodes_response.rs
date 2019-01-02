@@ -1,7 +1,7 @@
 /*! NodesResponse packet
 */
 
-use nom::{le_u8, be_u64, rest};
+use nom::{Err, be_u64, rest, le_u8};
 
 use toxcore::binary_io::*;
 use toxcore::crypto_core::*;
@@ -88,15 +88,16 @@ impl NodesResponse {
             })?;
 
         match NodesResponsePayload::from_bytes(&decrypted) {
-            IResult::Incomplete(needed) => {
+            Err(Err::Incomplete(needed)) => {
                 debug!(target: "NodesResponse", "NodesResponsePayload deserialize error: {:?}", needed);
                 Err(GetPayloadError::incomplete(needed, self.payload.to_vec()))
             },
-            IResult::Error(error) => {
+            Err(Err::Error(error)) => {
                 debug!(target: "NodesResponse", "PingRequestPayload deserialize error: {:?}", error);
-                Err(GetPayloadError::deserialize(error, self.payload.to_vec()))
+                Err(GetPayloadError::deserialize(error.into_error_kind(), self.payload.to_vec()))
             },
-            IResult::Done(_, payload) => {
+            Err(Err::Failure(e)) => panic!("NodesResponsePayload deserialize failed with unrecoverable error: {:?}", e),
+            Ok((_, payload)) => {
                 Ok(payload)
             }
         }
